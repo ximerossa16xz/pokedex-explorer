@@ -24,7 +24,7 @@ export default function App() {
         {/* The list stays mounted (only hidden) so it keeps its scroll and loaded pages */}
         <View style={{ flex: 1, display: view === "list" ? "flex" : "none" }}>
           <ListScreen
-            onSelectPokemon={(pokemon) => openDetail(pokemon.id)}
+            onSelectPokemon={openDetail} // PokemonCard sends the id (a number)
             onSearch={openDetail}
           />
         </View>
