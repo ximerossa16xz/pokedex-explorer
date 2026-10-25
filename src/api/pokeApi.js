@@ -52,6 +52,6 @@ export async function getPokemonDetail(nameOrId) {
     weight: data.weight / 10, // hectograms -> kilograms
     types: data.types.map((t) => t.type.name),
     stats: data.stats.map((s) => ({ name: s.stat.name, value: s.base_stat })),
-    image: data.sprites.other['official-artwork'].front_default,
+    image: data.sprites.other['official-artwork'].front_default ?? data.sprites.front_default,
   };
 }
