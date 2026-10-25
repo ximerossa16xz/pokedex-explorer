@@ -1,8 +1,8 @@
-// src/screens/ListScreen.js
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   StyleSheet,
   Text,
   View,
@@ -24,8 +24,15 @@ export default function ListScreen({ onSelectPokemon, onSearch }) {
   const [hasMore, setHasMore] = useState(true);
   const [query, setQuery] = useState("");
 
+  // Lock: setState is asynchronous, so onEndReached could fire twice
+  // before loadingMore becomes true. A ref changes immediately.
+  const isFetching = useRef(false);
+
   // CONCEPT: async/await with loading, success and error handling
   const loadPage = useCallback(async (pageOffset) => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+
     try {
       setError(null);
       if (pageOffset === 0) setLoading(true);
@@ -41,12 +48,14 @@ export default function ListScreen({ onSelectPokemon, onSearch }) {
         "No pudimos cargar los Pokémon. Revisa tu conexión e inténtalo de nuevo.",
       );
     } finally {
+      isFetching.current = false;
       setLoading(false);
       setLoadingMore(false);
     }
   }, []);
 
-  // CONCEPT: useEffect with an empty dependency array -> runs only once, on mount
+  // CONCEPT: useEffect dependency array. loadPage is wrapped in useCallback
+  // with [], so its identity never changes -> the effect runs only once (on mount).
   useEffect(() => {
     loadPage(0);
   }, [loadPage]);
@@ -63,11 +72,40 @@ export default function ListScreen({ onSelectPokemon, onSearch }) {
     onSearch(text);
   };
 
+  // UI state: loading (first load)
   if (loading) return <LoadingView message="Cargando Pokémon..." />;
 
+  // UI state: error on first load
   if (error && pokemon.length === 0) {
     return <ErrorView message={error} onRetry={() => loadPage(0)} />;
   }
+
+  // Footer: spinner while loading more, or retry if loading more failed
+  const renderFooter = () => {
+    if (loadingMore) {
+      return (
+        <ActivityIndicator
+          size="large"
+          color="#E3350D"
+          style={styles.footer}
+        />
+      );
+    }
+    if (error) {
+      return (
+        <View style={styles.footer}>
+          <Text style={styles.footerError}>{error}</Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => loadPage(offset)}
+          >
+            <Text style={styles.retryText}>Reintentar</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return null;
+  };
 
   return (
     <View style={styles.container}>
@@ -89,15 +127,7 @@ export default function ListScreen({ onSelectPokemon, onSearch }) {
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
         contentContainerStyle={styles.list}
-        ListFooterComponent={
-          loadingMore ? (
-            <ActivityIndicator
-              size="large"
-              color="#E3350D"
-              style={styles.footer}
-            />
-          ) : null
-        }
+        ListFooterComponent={renderFooter}
       />
     </View>
   );
@@ -112,5 +142,13 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   list: { paddingHorizontal: 6, paddingBottom: 16 },
-  footer: { marginVertical: 16 },
+  footer: { marginVertical: 16, alignItems: "center" },
+  footerError: { color: "#444", textAlign: "center", marginBottom: 8 },
+  retryButton: {
+    backgroundColor: "#E3350D",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryText: { color: "#fff", fontWeight: "bold" },
 });
